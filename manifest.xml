@@ -3,7 +3,6 @@
   xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
-  xmlns:mailappor="http://schemas.microsoft.com/office/mailappversionoverrides/1.0"
   xsi:type="MailApp">
 
   <Id>7c9e4b3a-1f2d-4e6a-9b8c-3d5f7a2e1c4b</Id>
@@ -11,14 +10,13 @@
   <ProviderName>Lives International</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
   <DisplayName DefaultValue="Lives International Signature" />
-  <Description DefaultValue="Insereaza automat semnatura oficiala Lives International la fiecare email nou, reply sau forward." />
+  <Description DefaultValue="Insereaza semnatura oficiala Lives International." />
   <IconUrl DefaultValue="https://gray-rock-03152a903.7.azurestaticapps.net/assets/icon-64.png" />
   <HighResolutionIconUrl DefaultValue="https://gray-rock-03152a903.7.azurestaticapps.net/assets/icon-128.png" />
   <SupportUrl DefaultValue="https://lives-international.com" />
 
   <AppDomains>
     <AppDomain>https://gray-rock-03152a903.7.azurestaticapps.net</AppDomain>
-    <AppDomain>https://login.microsoftonline.com</AppDomain>
   </AppDomains>
 
   <Hosts>
@@ -59,8 +57,6 @@
       <Host xsi:type="MailHost">
         <DesktopFormFactor>
           <FunctionFile resid="Commands.Url" />
-
-          <!-- Buton manual de fallback in ribbon -->
           <ExtensionPoint xsi:type="MessageComposeCommandSurface">
             <OfficeTab id="TabDefault">
               <Group id="msgComposeGroup">
@@ -101,54 +97,30 @@
         <bt:String id="InsertSignature.Label" DefaultValue="Insereaza semnatura" />
       </bt:ShortStrings>
       <bt:LongStrings>
-        <bt:String id="InsertSignature.Tooltip" DefaultValue="Insereaza manual semnatura oficiala Lives International, daca nu a fost adaugata automat." />
+        <bt:String id="InsertSignature.Tooltip" DefaultValue="Insereaza manual semnatura oficiala Lives International." />
       </bt:LongStrings>
     </Resources>
 
-    <!-- Sectiune V1_1 imbricata: necesara pentru LaunchEvent (activare automata) -->
     <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides/1.1" xsi:type="VersionOverridesV1_1">
-
       <Requirements>
         <bt:Sets DefaultMinVersion="1.10">
           <bt:Set Name="Mailbox" />
         </bt:Sets>
       </Requirements>
-
       <Hosts>
         <Host xsi:type="MailHost">
-
-          <!-- Runtime necesar pentru activarea prin evenimente (LaunchEvent) -->
-          <Runtimes>
-            <!-- HTML folosit de Outlook web, Mac si noul Outlook pe Windows -->
-            <Runtime resid="WebViewRuntime.Url">
-              <!-- JS folosit de Outlook clasic pe Windows -->
-              <Override type="javascript" resid="JSRuntime.Url" />
-            </Runtime>
-          </Runtimes>
-
           <DesktopFormFactor>
             <FunctionFile resid="Commands.Url" />
-
-            <!-- Activare automata la compunere email nou / reply / forward -->
             <ExtensionPoint xsi:type="LaunchEvent">
               <LaunchEvents>
-                <LaunchEvent Type="OnNewMessageCompose" FunctionName="onNewMessageComposeHandler" SendModeOverride="PromptUser" />
+                <LaunchEvent Type="OnNewMessageCompose" FunctionName="onNewMessageComposeHandler" />
               </LaunchEvents>
-              <SourceLocation resid="WebViewRuntime.Url" />
+              <SourceLocation resid="Commands.Url" />
             </ExtensionPoint>
           </DesktopFormFactor>
         </Host>
       </Hosts>
 
-      <Resources>
-        <bt:Urls>
-          <bt:Url id="Commands.Url" DefaultValue="https://gray-rock-03152a903.7.azurestaticapps.net/commands.html" />
-          <bt:Url id="WebViewRuntime.Url" DefaultValue="https://gray-rock-03152a903.7.azurestaticapps.net/commands.html" />
-          <bt:Url id="JSRuntime.Url" DefaultValue="https://gray-rock-03152a903.7.azurestaticapps.net/commands.js" />
-        </bt:Urls>
-      </Resources>
-
-      <!-- Configurare SSO: Application ID din Entra App Registration -->
       <WebApplicationInfo>
         <Id>c088e753-e8fe-4dc2-b8c8-5f0996f0ad62</Id>
         <Resource>api://gray-rock-03152a903.7.azurestaticapps.net/c088e753-e8fe-4dc2-b8c8-5f0996f0ad62</Resource>
