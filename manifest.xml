@@ -116,6 +116,16 @@
 
       <Hosts>
         <Host xsi:type="MailHost">
+
+          <!-- Runtime necesar pentru activarea prin evenimente (LaunchEvent) -->
+          <Runtimes>
+            <!-- HTML folosit de Outlook web, Mac si noul Outlook pe Windows -->
+            <Runtime resid="WebViewRuntime.Url">
+              <!-- JS folosit de Outlook clasic pe Windows -->
+              <Override type="javascript" resid="JSRuntime.Url" />
+            </Runtime>
+          </Runtimes>
+
           <DesktopFormFactor>
             <FunctionFile resid="Commands.Url" />
 
@@ -124,7 +134,7 @@
               <LaunchEvents>
                 <LaunchEvent Type="OnNewMessageCompose" FunctionName="onNewMessageComposeHandler" SendModeOverride="PromptUser" />
               </LaunchEvents>
-              <SourceLocation resid="Commands.Url" />
+              <SourceLocation resid="WebViewRuntime.Url" />
             </ExtensionPoint>
           </DesktopFormFactor>
         </Host>
@@ -133,6 +143,8 @@
       <Resources>
         <bt:Urls>
           <bt:Url id="Commands.Url" DefaultValue="https://gray-rock-03152a903.7.azurestaticapps.net/commands.html" />
+          <bt:Url id="WebViewRuntime.Url" DefaultValue="https://gray-rock-03152a903.7.azurestaticapps.net/commands.html" />
+          <bt:Url id="JSRuntime.Url" DefaultValue="https://gray-rock-03152a903.7.azurestaticapps.net/commands.js" />
         </bt:Urls>
       </Resources>
 
