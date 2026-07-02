@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Lives International Signature</title>
+  <script src="https://appsforoffice.microsoft.com/lib/1.1/hosted/office.js"></script>
+  <style>
+    body { font-family: Calibri, sans-serif; padding: 20px; text-align: center; }
+    button {
+      background: #184479; color: #fff; border: none; border-radius: 4px;
+      padding: 10px 20px; font-size: 14px; cursor: pointer; margin-top: 12px;
+    }
+    button:hover { background: #123361; }
+    p { color: #404040; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <h3>Semnatura Lives International</h3>
+  <p>Semnatura se insereaza automat la fiecare email nou.<br/>Daca lipseste, apasa butonul de mai jos.</p>
+  <button id="insertBtn">Insereaza semnatura</button>
+
+  <script type="text/javascript" src="commands.js"></script>
+  <script type="text/javascript">
+    Office.onReady(() => {
+      document.getElementById("insertBtn").onclick = () => {
+        insertSignature().catch((err) => console.error(err));
+      };
+    });
+  </script>
+</body>
+</html>
