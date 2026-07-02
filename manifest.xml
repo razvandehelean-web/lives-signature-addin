@@ -18,6 +18,7 @@
 
   <AppDomains>
     <AppDomain>https://gray-rock-03152a903.7.azurestaticapps.net</AppDomain>
+    <AppDomain>https://login.microsoftonline.com</AppDomain>
   </AppDomains>
 
   <Hosts>
@@ -26,7 +27,7 @@
 
   <Requirements>
     <Sets>
-      <Set Name="Mailbox" MinVersion="1.10" />
+      <Set Name="Mailbox" MinVersion="1.5" />
     </Sets>
   </Requirements>
 
@@ -47,15 +48,15 @@
   <DisableEntityHighlighting>false</DisableEntityHighlighting>
 
   <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides" xsi:type="VersionOverridesV1_0">
+
     <Requirements>
-      <bt:Sets DefaultMinVersion="1.10">
+      <bt:Sets DefaultMinVersion="1.5">
         <bt:Set Name="Mailbox" />
       </bt:Sets>
     </Requirements>
 
     <Hosts>
       <Host xsi:type="MailHost">
-
         <DesktopFormFactor>
           <FunctionFile resid="Commands.Url" />
 
@@ -82,15 +83,6 @@
               </Group>
             </OfficeTab>
           </ExtensionPoint>
-
-          <!-- Activare automata la compunere email nou -->
-          <ExtensionPoint xsi:type="LaunchEvent">
-            <LaunchEvents>
-              <LaunchEvent Type="OnNewMessageCompose" FunctionName="onNewMessageComposeHandler" SendModeOverride="PromptUser" />
-            </LaunchEvents>
-            <SourceLocation resid="Commands.Url" />
-          </ExtensionPoint>
-
         </DesktopFormFactor>
       </Host>
     </Hosts>
@@ -112,5 +104,50 @@
         <bt:String id="InsertSignature.Tooltip" DefaultValue="Insereaza manual semnatura oficiala Lives International, daca nu a fost adaugata automat." />
       </bt:LongStrings>
     </Resources>
+
+    <!-- Sectiune V1_1 imbricata: necesara pentru LaunchEvent (activare automata) -->
+    <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides/1.1" xsi:type="VersionOverridesV1_1">
+
+      <Requirements>
+        <bt:Sets DefaultMinVersion="1.10">
+          <bt:Set Name="Mailbox" />
+        </bt:Sets>
+      </Requirements>
+
+      <Hosts>
+        <Host xsi:type="MailHost">
+          <DesktopFormFactor>
+            <FunctionFile resid="Commands.Url" />
+
+            <!-- Activare automata la compunere email nou / reply / forward -->
+            <ExtensionPoint xsi:type="LaunchEvent">
+              <LaunchEvents>
+                <LaunchEvent Type="OnNewMessageCompose" FunctionName="onNewMessageComposeHandler" SendModeOverride="PromptUser" />
+              </LaunchEvents>
+              <SourceLocation resid="Commands.Url" />
+            </ExtensionPoint>
+          </DesktopFormFactor>
+        </Host>
+      </Hosts>
+
+      <Resources>
+        <bt:Urls>
+          <bt:Url id="Commands.Url" DefaultValue="https://gray-rock-03152a903.7.azurestaticapps.net/commands.html" />
+        </bt:Urls>
+      </Resources>
+
+      <!-- Configurare SSO: Application ID din Entra App Registration -->
+      <WebApplicationInfo>
+        <Id>c088e753-e8fe-4dc2-b8c8-5f0996f0ad62</Id>
+        <Resource>api://gray-rock-03152a903.7.azurestaticapps.net/c088e753-e8fe-4dc2-b8c8-5f0996f0ad62</Resource>
+        <Scopes>
+          <Scope>openid</Scope>
+          <Scope>profile</Scope>
+          <Scope>User.Read</Scope>
+        </Scopes>
+      </WebApplicationInfo>
+
+    </VersionOverrides>
+
   </VersionOverrides>
 </OfficeApp>
