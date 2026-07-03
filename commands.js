@@ -16,13 +16,22 @@ const COMPANY_WEBSITE = "https://lives-international.com";
 const GRAPH_ENDPOINT = "https://graph.microsoft.com/v1.0/me?$select=displayName,jobTitle,mobilePhone,mail,userPrincipalName";
 
 // ---- Handler: se declanseaza automat la fiecare email nou (compose/reply/forward) ----
+// function onNewMessageComposeHandler(event) {
+//   insertSignature()
+//     .then(() => event.completed())
+//     .catch((err) => {
+//       console.error("Eroare la inserarea automata a semnaturii:", err);
+//       event.completed();
+//     });
+// }
 function onNewMessageComposeHandler(event) {
-  insertSignature()
-    .then(() => event.completed())
-    .catch((err) => {
-      console.error("Eroare la inserarea automata a semnaturii:", err);
+  Office.context.mailbox.item.body.setSignatureAsync(
+    "<p><b>TEST EVENT OK</b><br/>Lives International</p>",
+    { coercionType: Office.CoercionType.Html },
+    function () {
       event.completed();
-    });
+    }
+  );
 }
 
 // ---- Handler: buton manual din ribbon, pentru fallback ----
