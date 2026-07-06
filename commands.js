@@ -55,6 +55,9 @@ function onNewMessageComposeHandler(event) {
       if (err && err.stage === "graph-timeout") {
         marker = "EVENT OK, GRAPH TIMEOUT";
       }
+      if (err && err.stage === "graph-aud") {
+        marker = "EVENT OK, TOKEN OK, AUD FAIL";
+      }
       setMarkerSignature(marker)
         .catch((fallbackErr) => {
           console.error("Auto fallback failed:", fallbackErr);
@@ -85,6 +88,12 @@ function insertSignatureManual(event) {
 // ---- Functia principala ----
 async function insertSignature(isInteractiveAuth) {
   const token = await getGraphToken(isInteractiveAuth);
+  const tokenInfo = getTokenInfo(token);
+  if (!tokenInfo.isGraphAudience) {
+    const err = new Error(`Token audience is not Graph: ${tokenInfo.aud || "unknown"}`);
+    err.stage = "graph-aud";
+    throw err;
+  }
   const user = await getUserData(token);
   const html = buildSignatureHtml(user);
   return setSignatureHtml(html);
@@ -206,6 +215,22 @@ function withTimeout(promise, timeoutMs, stage) {
         reject(err);
       });
   });
+}
+
+function getTokenInfo(token) {
+  try {
+    const parts = (token || "").split(".");
+    if (parts.length < 2) {
+      return { aud: null, isGraphAudience: false };
+    }
+    const payloadRaw = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const payloadJson = JSON.parse(atob(payloadRaw));
+    const aud = payloadJson.aud || null;
+    const isGraphAudience = aud === "https://graph.microsoft.com" || aud === "00000003-0000-0000-c000-000000000000";
+    return { aud, isGraphAudience };
+  } catch (err) {
+    return { aud: null, isGraphAudience: false };
+  }
 }
 
 function createEventFinisher(event) {
