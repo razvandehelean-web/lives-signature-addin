@@ -26,7 +26,7 @@ const GRAPH_ENDPOINT = "https://graph.microsoft.com/v1.0/me?$select=displayName,
 // }
 function onNewMessageComposeHandler(event) {
   Office.context.mailbox.item.body.setSignatureAsync(
-    "<p><b>TEST EVENT OK</b><br/>Lives International</p>",
+    "<p><b>TEST EVENT OK 123</b><br/>Lives International</p>",
     { coercionType: Office.CoercionType.Html },
     function () {
       event.completed();
