@@ -14,6 +14,7 @@ const LINKEDIN_ICON_URL = "https://medisolassets.blob.core.windows.net/logo-uri/
 const LINKEDIN_COMPANY_URL = "https://www.linkedin.com/company/lives-international/posts/?feedView=all";
 const COMPANY_WEBSITE = "https://lives-international.com";
 const GRAPH_ENDPOINT = "https://graph.microsoft.com/v1.0/me?$select=displayName,jobTitle,mobilePhone,mail,userPrincipalName";
+const EVENT_TIMEOUT_MS = 7000;
 
 // ---- Handler: se declanseaza automat la fiecare email nou (compose/reply/forward) ----
 // function onNewMessageComposeHandler(event) {
@@ -25,16 +26,31 @@ const GRAPH_ENDPOINT = "https://graph.microsoft.com/v1.0/me?$select=displayName,
 //     });
 // }
 function onNewMessageComposeHandler(event) {
-  insertSignature()
-    .then(() => event.completed())
+  const finishEvent = createEventFinisher(event);
+  const timeoutId = setTimeout(() => {
+    setMarkerSignature("EVENT OK, TIMEOUT")
+      .catch((err) => {
+        console.error("Timeout fallback failed:", err);
+      })
+      .then(finishEvent, finishEvent);
+  }, EVENT_TIMEOUT_MS);
+
+  insertSignature(false)
+    .then(() => {
+      clearTimeout(timeoutId);
+      finishEvent();
+    })
     .catch((err) => {
+      clearTimeout(timeoutId);
       console.error("Auto signature error:", err);
-      // fallback vizibil ca sa stii ca eventul ruleaza
-      Office.context.mailbox.item.body.setSignatureAsync(
-        "<p><b>EVENT OK, GRAPH FAIL</b></p>",
-        { coercionType: Office.CoercionType.Html },
-        () => event.completed()
-      );
+      const marker = err && err.stage === "token"
+        ? "EVENT OK, TOKEN FAIL"
+        : "EVENT OK, GRAPH FAIL";
+      setMarkerSignature(marker)
+        .catch((fallbackErr) => {
+          console.error("Auto fallback failed:", fallbackErr);
+        })
+        .then(finishEvent, finishEvent);
     });
 }
 // function onNewMessageComposeHandler(event) {
@@ -49,7 +65,7 @@ function onNewMessageComposeHandler(event) {
 
 // ---- Handler: buton manual din ribbon, pentru fallback ----
 function insertSignatureManual(event) {
-  insertSignature()
+  insertSignature(true)
     .then(() => event.completed())
     .catch((err) => {
       console.error("Eroare la inserarea manuala a semnaturii:", err);
@@ -58,24 +74,11 @@ function insertSignatureManual(event) {
 }
 
 // ---- Functia principala ----
-async function insertSignature() {
-  const token = await getGraphToken();
+async function insertSignature(isInteractiveAuth) {
+  const token = await getGraphToken(isInteractiveAuth);
   const user = await getUserData(token);
   const html = buildSignatureHtml(user);
-
-  return new Promise((resolve, reject) => {
-    Office.context.mailbox.item.body.setSignatureAsync(
-      html,
-      { coercionType: Office.CoercionType.Html },
-      (result) => {
-        if (result.status === Office.AsyncResultStatus.Succeeded) {
-          resolve();
-        } else {
-          reject(result.error);
-        }
-      }
-    );
-  });
+  return setSignatureHtml(html);
 }
 
 // ---- Obtine token SSO pentru Graph API ----
@@ -94,15 +97,30 @@ async function insertSignature() {
 //   });
 // }
 
-async function getGraphToken() {
+async function getGraphToken(isInteractiveAuth) {
+  const authOptions = {
+    allowSignInPrompt: !!isInteractiveAuth,
+    allowConsentPrompt: !!isInteractiveAuth
+  };
+
   try {
-    // In multe build-uri Outlook event-based, asta e calea corecta
-    return await OfficeRuntime.auth.getAccessToken({
-      allowSignInPrompt: true,
-      allowConsentPrompt: true
+    if (typeof OfficeRuntime !== "undefined" && OfficeRuntime.auth && OfficeRuntime.auth.getAccessToken) {
+      return await OfficeRuntime.auth.getAccessToken(authOptions);
+    }
+
+    return await new Promise((resolve, reject) => {
+      Office.context.auth.getAccessTokenAsync(authOptions, (result) => {
+        if (result.status === Office.AsyncResultStatus.Succeeded) {
+          resolve(result.value);
+        } else {
+          reject(result.error);
+        }
+      });
     });
   } catch (e) {
-    throw e;
+    const tokenError = e instanceof Error ? e : new Error(String(e));
+    tokenError.stage = "token";
+    throw tokenError;
   }
 }
 
@@ -112,9 +130,46 @@ async function getUserData(token) {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!response.ok) {
-    throw new Error(`Graph API error: ${response.status}`);
+    const err = new Error(`Graph API error: ${response.status}`);
+    err.stage = "graph";
+    throw err;
   }
   return response.json();
+}
+
+function createEventFinisher(event) {
+  let completed = false;
+  return function finishEvent() {
+    if (completed) {
+      return;
+    }
+    completed = true;
+    try {
+      event.completed();
+    } catch (err) {
+      console.error("event.completed() failed:", err);
+    }
+  };
+}
+
+function setSignatureHtml(html) {
+  return new Promise((resolve, reject) => {
+    Office.context.mailbox.item.body.setSignatureAsync(
+      html,
+      { coercionType: Office.CoercionType.Html },
+      (result) => {
+        if (result.status === Office.AsyncResultStatus.Succeeded) {
+          resolve();
+        } else {
+          reject(result.error);
+        }
+      }
+    );
+  });
+}
+
+function setMarkerSignature(markerText) {
+  return setSignatureHtml(`<p><b>${markerText}</b><br/>Lives International</p>`);
 }
 
 // ---- Construieste HTML-ul semnaturii, cu logica conditionala (client-side!) ----
