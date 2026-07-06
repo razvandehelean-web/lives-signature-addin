@@ -16,12 +16,25 @@ const COMPANY_WEBSITE = "https://lives-international.com";
 const GRAPH_ENDPOINT = "https://graph.microsoft.com/v1.0/me?$select=displayName,jobTitle,mobilePhone,mail,userPrincipalName";
 
 // ---- Handler: se declanseaza automat la fiecare email nou (compose/reply/forward) ----
+// function onNewMessageComposeHandler(event) {
+//   insertSignature()
+//     .then(() => event.completed())
+//     .catch((err) => {
+//       console.error("Eroare la inserarea automata a semnaturii:", err);
+//       event.completed();
+//     });
+// }
 function onNewMessageComposeHandler(event) {
   insertSignature()
     .then(() => event.completed())
     .catch((err) => {
-      console.error("Eroare la inserarea automata a semnaturii:", err);
-      event.completed();
+      console.error("Auto signature error:", err);
+      // fallback vizibil ca sa stii ca eventul ruleaza
+      Office.context.mailbox.item.body.setSignatureAsync(
+        "<p><b>EVENT OK, GRAPH FAIL</b></p>",
+        { coercionType: Office.CoercionType.Html },
+        () => event.completed()
+      );
     });
 }
 // function onNewMessageComposeHandler(event) {
@@ -66,19 +79,31 @@ async function insertSignature() {
 }
 
 // ---- Obtine token SSO pentru Graph API ----
-function getGraphToken() {
-  return new Promise((resolve, reject) => {
-    Office.context.auth.getAccessTokenAsync(
-      { allowSignInPrompt: true, allowConsentPrompt: true },
-      (result) => {
-        if (result.status === Office.AsyncResultStatus.Succeeded) {
-          resolve(result.value);
-        } else {
-          reject(result.error);
-        }
-      }
-    );
-  });
+// function getGraphToken() {
+//   return new Promise((resolve, reject) => {
+//     Office.context.auth.getAccessTokenAsync(
+//       { allowSignInPrompt: true, allowConsentPrompt: true },
+//       (result) => {
+//         if (result.status === Office.AsyncResultStatus.Succeeded) {
+//           resolve(result.value);
+//         } else {
+//           reject(result.error);
+//         }
+//       }
+//     );
+//   });
+// }
+
+async function getGraphToken() {
+  try {
+    // In multe build-uri Outlook event-based, asta e calea corecta
+    return await OfficeRuntime.auth.getAccessToken({
+      allowSignInPrompt: true,
+      allowConsentPrompt: true
+    });
+  } catch (e) {
+    throw e;
+  }
 }
 
 // ---- Interogheaza Graph API pentru datele userului curent ----
