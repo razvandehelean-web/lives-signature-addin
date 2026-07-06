@@ -15,6 +15,8 @@ const LINKEDIN_COMPANY_URL = "https://www.linkedin.com/company/lives-internation
 const COMPANY_WEBSITE = "https://lives-international.com";
 const GRAPH_ENDPOINT = "https://graph.microsoft.com/v1.0/me?$select=displayName,jobTitle,mobilePhone,mail,userPrincipalName";
 const EVENT_TIMEOUT_MS = 7000;
+const TOKEN_TIMEOUT_MS = 2500;
+const GRAPH_TIMEOUT_MS = 3000;
 
 // ---- Handler: se declanseaza automat la fiecare email nou (compose/reply/forward) ----
 // function onNewMessageComposeHandler(event) {
@@ -43,9 +45,16 @@ function onNewMessageComposeHandler(event) {
     .catch((err) => {
       clearTimeout(timeoutId);
       console.error("Auto signature error:", err);
-      const marker = err && err.stage === "token"
-        ? "EVENT OK, TOKEN FAIL"
-        : "EVENT OK, GRAPH FAIL";
+      let marker = "EVENT OK, GRAPH FAIL";
+      if (err && err.stage === "token") {
+        marker = "EVENT OK, TOKEN FAIL";
+      }
+      if (err && err.stage === "token-timeout") {
+        marker = "EVENT OK, TOKEN TIMEOUT";
+      }
+      if (err && err.stage === "graph-timeout") {
+        marker = "EVENT OK, GRAPH TIMEOUT";
+      }
       setMarkerSignature(marker)
         .catch((fallbackErr) => {
           console.error("Auto fallback failed:", fallbackErr);
@@ -105,10 +114,18 @@ async function getGraphToken(isInteractiveAuth) {
 
   try {
     if (typeof OfficeRuntime !== "undefined" && OfficeRuntime.auth && OfficeRuntime.auth.getAccessToken) {
-      return await OfficeRuntime.auth.getAccessToken(authOptions);
+      try {
+        return await withTimeout(
+          OfficeRuntime.auth.getAccessToken(authOptions),
+          TOKEN_TIMEOUT_MS,
+          "token-timeout"
+        );
+      } catch (runtimeErr) {
+        // Classic can hang or fail in OfficeRuntime path; fallback to legacy Office.context.auth.
+      }
     }
 
-    return await new Promise((resolve, reject) => {
+    return await withTimeout(new Promise((resolve, reject) => {
       Office.context.auth.getAccessTokenAsync(authOptions, (result) => {
         if (result.status === Office.AsyncResultStatus.Succeeded) {
           resolve(result.value);
@@ -116,25 +133,79 @@ async function getGraphToken(isInteractiveAuth) {
           reject(result.error);
         }
       });
-    });
+    }), TOKEN_TIMEOUT_MS, "token-timeout");
   } catch (e) {
     const tokenError = e instanceof Error ? e : new Error(String(e));
-    tokenError.stage = "token";
+    tokenError.stage = tokenError.stage || "token";
     throw tokenError;
   }
 }
 
 // ---- Interogheaza Graph API pentru datele userului curent ----
 async function getUserData(token) {
-  const response = await fetch(GRAPH_ENDPOINT, {
-    headers: { Authorization: `Bearer ${token}` },
+  return getUserDataWithXhr(token);
+}
+
+function getUserDataWithXhr(token) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("GET", GRAPH_ENDPOINT, true);
+    xhr.timeout = GRAPH_TIMEOUT_MS;
+    xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+
+    xhr.onreadystatechange = function () {
+      if (xhr.readyState !== 4) {
+        return;
+      }
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          resolve(JSON.parse(xhr.responseText));
+        } catch (parseErr) {
+          const err = new Error("Graph response parse error");
+          err.stage = "graph";
+          reject(err);
+        }
+        return;
+      }
+      const err = new Error(`Graph API error: ${xhr.status}`);
+      err.stage = "graph";
+      reject(err);
+    };
+
+    xhr.ontimeout = function () {
+      const err = new Error("Graph request timeout");
+      err.stage = "graph-timeout";
+      reject(err);
+    };
+
+    xhr.onerror = function () {
+      const err = new Error("Graph network error");
+      err.stage = "graph";
+      reject(err);
+    };
+
+    xhr.send();
   });
-  if (!response.ok) {
-    const err = new Error(`Graph API error: ${response.status}`);
-    err.stage = "graph";
-    throw err;
-  }
-  return response.json();
+}
+
+function withTimeout(promise, timeoutMs, stage) {
+  return new Promise((resolve, reject) => {
+    const id = setTimeout(() => {
+      const err = new Error("Operation timeout");
+      err.stage = stage;
+      reject(err);
+    }, timeoutMs);
+
+    promise
+      .then((value) => {
+        clearTimeout(id);
+        resolve(value);
+      })
+      .catch((err) => {
+        clearTimeout(id);
+        reject(err);
+      });
+  });
 }
 
 function createEventFinisher(event) {
